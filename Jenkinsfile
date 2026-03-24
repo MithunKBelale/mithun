@@ -16,5 +16,10 @@ pipeline{
         sh './script.sh'
       }
     }
+    stage('Build Docker Image') {
+    steps {
+        sh 'docker build -t my-python-app:${env.BUILD_ID} .'
+    }
+}
   }
 }
