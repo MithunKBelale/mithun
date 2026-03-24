@@ -1,25 +1,68 @@
-pipeline{
-  agent any
+pipeline {
+    agent any
 
-  stages{
+    environment {
+        // 1. Updated to your exact Docker Hub username
+        DOCKER_USER = "meghanagowda282005"
+        
+        // 2. This must match the ID you created in Jenkins Credentials
+        REGISTRY_CREDENTIALS = 'docker-hub-creds'
+        
+        IMAGE_NAME = "my_meg_app"
+        CONTAINER_NAME = "my_meg_container"
+    }
 
-    stage('clone'){
-      steps {
-        git url: 'https://github.com/MithunKBelale/jenkins.git',
-          branch: 'main'
+    stages {
+        stage('Checkout') {
+            steps {
+                echo '馃摜 Pulling code from GitHub...'
+                checkout scm
+            }
+        }
 
-      }
+        stage('Build') {
+            steps {
+                echo '馃敤 Building Docker Image...'
+                // Tags the image correctly for your account
+                sh "docker build -t ${DOCKER_USER}/${IMAGE_NAME}:latest ."
+            }
+        }
+
+        stage('Test') {
+            steps {
+                echo '馃И Running Python Syntax Check...'
+                sh "python3 -m py_compile app.py"
+            }
+        }
+
+        stage('Push to Docker Hub') {
+            steps {
+                script {
+                    // This uses the 'docker-hub-creds' from your Jenkins Credentials vault
+                    docker.withRegistry('', "${REGISTRY_CREDENTIALS}") {
+                        echo '馃摛 Pushing Image to Docker Hub...'
+                        sh "docker push ${DOCKER_USER}/${IMAGE_NAME}:latest"
+                    }
+                }
+            }
+        }
+
+        stage('Deploy Local') {
+            steps {
+                echo '馃殌 Refreshing Local Container...'
+                sh "docker stop ${CONTAINER_NAME} || true"
+                sh "docker rm ${CONTAINER_NAME} || true"
+                sh "docker run -d -p 5000:5000 --name ${CONTAINER_NAME} ${DOCKER_USER}/${IMAGE_NAME}:latest"
+            }
+        }
     }
-    stage('Run Script'){
-      steps{
-        sh 'chmod +x script.sh'
-        sh './script.sh'
-      }
+
+    post {
+        success {
+            echo '鉁� Success! Your image is on Docker Hub and running locally.'
+        }
+        failure {
+            echo '鉂� Pipeline Failed. Check the Console Output for login or naming errors.'
+        }
     }
-    stage('Build Docker Image') {
-    steps {
-        sh 'docker build -t my-python-app:${env.BUILD_ID} .'
-    }
-}
-  }
 }
